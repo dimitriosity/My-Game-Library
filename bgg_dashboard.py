@@ -1,4 +1,3 @@
-
 import xml.etree.ElementTree as ET
 import requests
 import pandas as pd
@@ -24,18 +23,27 @@ for item in root.findall("item"):
 # --- FETCH DETAILS FROM BGG API ---
 def fetch_game_details(game_id):
     url = f"https://boardgamegeek.com/xmlapi2/thing?id={game_id}&stats=1"
-    response = requests.get(url)
-    root = ET.fromstring(response.content)
-    item = root.find("item")
+    try:
+        response = requests.get(url, timeout=10)
+        root = ET.fromstring(response.content)
+        item = root.find("item")
+        if item is None:
+            return "", "", "Not Ranked"
 
-    year = item.find("yearpublished").attrib.get("value", "") if item.find("yearpublished") is not None else ""
-    avg = item.find("./statistics/ratings/average").attrib.get("value", "") if item.find("./statistics/ratings/average") is not None else ""
-    rank_elem = item.find("./statistics/ratings/ranks/rank[@name='boardgame']")
-    rank = rank_elem.attrib.get("value", "Not Ranked") if rank_elem is not None else "Not Ranked"
+        year_node = item.find("yearpublished")
+        year = year_node.attrib.get("value", "") if year_node is not None else ""
 
-    return year, avg, rank
+        avg_node = item.find("./statistics/ratings/average")
+        avg = avg_node.attrib.get("value", "") if avg_node is not None else ""
 
-@st.cache_data
+        rank_elem = item.find("./statistics/ratings/ranks/rank[@name='boardgame']")
+        rank = rank_elem.attrib.get("value", "Not Ranked") if rank_elem is not None else "Not Ranked"
+
+        return year, avg, rank
+    except Exception as e:
+        return "", "", "Error"
+
+@st.cache_data(show_spinner=False)
 def load_full_data():
     detailed = []
     for i, game in enumerate(games):
